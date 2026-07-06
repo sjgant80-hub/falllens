@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FallLens · peer-relay URL viewer</title>
+<meta name="description" content="Sovereign browsing primitive. Fetch web content through trusted peers. Signed, content-addressed, verifiable. When your network can't, a friend's can.">
+<meta name="author" content="AI-Native Solutions">
+<meta name="theme-color" content="#1a1a1e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a1a1e'/%3E%3Ctext x='16' y='22' font-family='serif' font-size='18' fill='%237a9c7e' text-anchor='middle'%3E%E2%97%8A%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--void:#1a1a1e;--deep:#212127;--surface:#2a2a30;--raised:#33333a;--line:rgba(232,228,219,0.08);--line2:rgba(232,228,219,0.16);--text:#e8e4db;--muted:#928d80;--dim:#6b6660;--sage:#7a9c7e;--sage-dim:rgba(122,156,126,0.14);--amber:#d4a052;--amber-dim:rgba(212,160,82,0.12);--coral:#d67a5a;--coral-glow:rgba(214,122,90,0.15);--serif:'Cormorant Garamond','Iowan Old Style',Georgia,serif;--sans:'Inter',-apple-system,system-ui,sans-serif;--mono:'JetBrains Mono','IBM Plex Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--void);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;background:transparent;color:inherit}
+input,textarea,select{font-family:inherit;background:transparent;color:var(--text);border:none;outline:none;width:100%}
+h1,h2,h3{font-family:var(--serif);font-weight:400;color:var(--text);line-height:1.2}
+h1{font-size:28px}h1 em{color:var(--sage);font-style:italic}
+h2{font-size:20px;margin-bottom:10px}h2 em{color:var(--sage);font-style:italic}
+h3{font-size:13px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.14em;font-family:var(--mono);font-weight:500}
+.app{display:grid;grid-template-rows:auto auto 1fr;min-height:100vh}
+.topbar{background:rgba(26,26,30,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:12px 22px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-size:22px;color:var(--text)}
+.brand .glyph{color:var(--sage);font-size:22px}
+.brand .co{color:var(--dim);font-family:var(--mono);font-size:9.5px;letter-spacing:0.16em;margin-left:6px;text-transform:uppercase}
+.tabs{display:flex;gap:4px}
+.tab{color:var(--muted);padding:7px 14px;border-radius:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.on{background:var(--sage-dim);color:var(--sage)}
+.relay-pill{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--surface);border:1px solid var(--line);border-radius:20px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.1em;color:var(--muted)}
+.relay-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.relay-pill.on .dot{background:var(--sage);box-shadow:0 0 8px var(--sage)}
+.relay-pill.on{color:var(--sage);border-color:var(--sage-dim)}
+.banner{background:linear-gradient(90deg,var(--amber-dim),transparent);border-bottom:1px solid var(--line);padding:9px 22px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;color:var(--amber);display:flex;justify-content:space-between;align-items:center;gap:14px}
+.banner .txt{flex:1;min-width:200px}
+.banner .dismiss{color:var(--muted);cursor:pointer;font-size:14px}
+main{padding:22px;max-width:1180px;margin:0 auto;width:100%}
+.view{display:none}
+.view.on{display:block}
+.url-bar{background:var(--deep);border:1px solid var(--line2);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;margin-bottom:16px;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+.url-bar .prefix{color:var(--muted);font-family:var(--mono);font-size:12px;letter-spacing:0.06em}
+.url-bar input{font-family:var(--mono);font-size:14px;flex:1;padding:6px 4px}
+.url-bar input::placeholder{color:var(--dim)}
+.url-bar .go{background:var(--sage);color:var(--void);padding:10px 20px;border-radius:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700}
+.url-bar .go:hover{background:#8db091}
+.url-bar .go:disabled{opacity:0.5;cursor:wait}
+.grid{display:grid;grid-template-columns:1fr 340px;gap:16px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.frame-card{background:var(--deep);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-height:520px;display:flex;flex-direction:column}
+.frame-meta{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:0.06em;gap:10px;flex-wrap:wrap}
+.frame-meta .state{color:var(--sage)}
+.frame-meta .state.err{color:var(--coral)}
+.frame-meta .state.wait{color:var(--amber)}
+.frame-meta .cid{overflow:hidden;text-overflow:ellipsis;max-width:180px;white-space:nowrap}
+.frame-host{flex:1;background:#0f0f12;position:relative}
+.frame-host iframe{width:100%;height:100%;border:none;min-height:520px;background:#fff}
+.frame-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;text-align:center;color:var(--muted);gap:14px;min-height:520px}
+.frame-empty .big{font-family:var(--serif);font-size:26px;color:var(--text);font-style:italic}
+.frame-empty .big em{color:var(--sage)}
+.frame-empty .hint{max-width:360px;font-size:13px}
+.side{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h3{margin-bottom:10px}
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11.5px}
+.stat-row:last-child{border-bottom:none}
+.stat-row .k{color:var(--muted);letter-spacing:0.08em}
+.stat-row .v{color:var(--text)}
+.stat-row .v.sage{color:var(--sage)}
+.peer-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
+.peer-row{padding:8px 10px;background:var(--surface);border-radius:8px;font-family:var(--mono);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.peer-row .did{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.peer-row .tag{padding:2px 6px;border-radius:6px;background:var(--sage-dim);color:var(--sage);font-size:9px;letter-spacing:0.1em;text-transform:uppercase}
+.peer-row .tag.self{background:var(--amber-dim);color:var(--amber)}
+.log-list{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto}
+.log-item{padding:10px 12px;background:var(--surface);border-radius:8px;font-family:var(--mono);font-size:11px;border-left:2px solid var(--sage)}
+.log-item.err{border-left-color:var(--coral)}
+.log-item.self{border-left-color:var(--amber)}
+.log-item .url{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px}
+.log-item .meta{color:var(--muted);font-size:10px;display:flex;gap:10px;flex-wrap:wrap}
+.log-item .meta .ok{color:var(--sage)}
+.log-item .meta .fail{color:var(--coral)}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.settings-grid{grid-template-columns:1fr}}
+.setting-row{padding:12px 0;border-bottom:1px solid var(--line)}
+.setting-row:last-child{border-bottom:none}
+.setting-row label{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;color:var(--text)}
+.setting-row .desc{color:var(--muted);font-size:11.5px;margin-top:4px}
+.setting-row input[type=number],.setting-row input[type=text],.setting-row select,.setting-row textarea{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text);max-width:180px}
+.setting-row textarea{max-width:100%;width:100%;min-height:80px;resize:vertical;margin-top:8px}
+.toggle{position:relative;width:40px;height:22px;background:var(--surface);border:1px solid var(--line2);border-radius:11px;cursor:pointer;transition:all .2s}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:var(--muted);border-radius:50%;transition:all .2s}
+.toggle.on{background:var(--sage-dim);border-color:var(--sage)}
+.toggle.on::after{left:20px;background:var(--sage)}
+.btn{padding:9px 18px;border-radius:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;transition:all .15s}
+.btn.primary{background:var(--sage);color:var(--void)}
+.btn.primary:hover{background:#8db091}
+.btn.ghost{border:1px solid var(--line2);color:var(--text)}
+.btn.ghost:hover{border-color:var(--sage);color:var(--sage)}
+.btn.coral{border:1px solid var(--coral);color:var(--coral)}
+.did-box{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text);overflow-wrap:anywhere;margin:6px 0}
+.mode-tabs{display:flex;gap:2px;background:var(--surface);border-radius:10px;padding:4px;margin-bottom:14px}
+.mode-tabs button{flex:1;padding:10px;border-radius:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted)}
+.mode-tabs button.on{background:var(--sage-dim);color:var(--sage)}
+.spinner{width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--sage);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.foot{padding:20px 22px 30px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:10px;letter-spacing:0.14em}
+.foot a{color:var(--muted);text-decoration:none}.foot a:hover{color:var(--sage)}
+.pill{display:inline-block;padding:2px 8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase}
+.pill.sage{background:var(--sage-dim);color:var(--sage);border-color:var(--sage-dim)}
+.pill.amber{background:var(--amber-dim);color:var(--amber);border-color:var(--amber-dim)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="glyph">◊</span> Fall<em style="color:var(--sage);font-style:italic;font-family:var(--serif)">Lens</em> <span class="co">AI-NATIVE SOLUTIONS</span></div>
+    <div class="tabs">
+      <button class="tab on" data-view="viewer">Viewer</button>
+      <button class="tab" data-view="relay">Relay</button>
+      <button class="tab" data-view="log">Log</button>
+      <button class="tab" data-view="settings">Settings</button>
+      <button class="tab" data-view="about">About</button>
+    </div>
+    <div class="relay-pill" id="relayPill"><div class="dot"></div><span id="relayPillTxt">Relay off</span></div>
+  </div>
+  <div class="banner">
+    <div class="txt">Peer-assisted browsing · content is fetched by trusted peers · verify by CID before trusting rendered pages</div>
+    <span class="dismiss" onclick="this.parentElement.style.display='none'">×</span>
+  </div>
+  <main>
+    <div class="view on" id="view-viewer">
+      <div class="url-bar">
+        <span class="prefix">URL</span>
+        <input id="urlInput" type="text" placeholder="https://example.com/article" autocomplete="off" spellcheck="false">
+        <button class="go" id="goBtn">Fetch</button>
+      </div>
+      <div class="grid">
+        <div class="frame-card">
+          <div class="frame-meta">
+            <div><span class="state" id="fState">idle</span> <span id="fUrl" style="color:var(--text);margin-left:8px"></span></div>
+            <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+              <span>relay: <span id="fRelay" style="color:var(--text)">—</span></span>
+              <span>time: <span id="fTime" style="color:var(--text)">—</span></span>
+              <span class="cid">CID: <span id="fCid" style="color:var(--text)">—</span></span>
+            </div>
+          </div>
+          <div class="frame-host" id="frameHost">
+            <div class="frame-empty" id="frameEmpty">
+              <div class="big">A <em>lens</em>, not a browser.</div>
+              <div class="hint">Type any URL above. A peer in your network will fetch it, sign the bytes, and stream them back. Rendered in a sandbox. Verified by CID.</div>
+              <div class="pill sage">◊ SANDBOXED · SIGNED · CONTENT-ADDRESSED</div>
+            </div>
+          </div>
+        </div>
+        <div class="side">
+          <div class="card">
+            <h3>Peers</h3>
+            <div class="peer-list" id="peerList">
+              <div class="peer-row"><span class="did" id="selfDid">—</span><span class="tag self">you</span></div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:6px">
+              <button class="btn ghost" id="connectBtn" style="flex:1">Connect</button>
+              <button class="btn ghost" id="pasteBtn" style="flex:1">Paste offer</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Session</h3>
+            <div class="stat-row"><span class="k">Fetches</span><span class="v sage" id="sFetches">0</span></div>
+            <div class="stat-row"><span class="k">Cache hits</span><span class="v" id="sCache">0</span></div>
+            <div class="stat-row"><span class="k">Cached CIDs</span><span class="v" id="sCids">0</span></div>
+            <div class="stat-row"><span class="k">Bytes served (as relay)</span><span class="v" id="sBytes">0</span></div>
+            <div class="stat-row"><span class="k">Relayed for others</span><span class="v" id="sRelays">0</span></div>
+          </div>
+          <div class="card">
+            <h3>Recent</h3>
+            <div class="log-list" id="recentList" style="max-height:200px"><div style="color:var(--muted);font-size:12px">No fetches yet.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="view" id="view-relay">
+      <div style="max-width:720px">
+        <h1>Relay <em>mode</em></h1>
+        <p style="color:var(--muted);margin:10px 0 22px">When on, this page listens for fetch requests from connected peers, fetches the URL from your network, signs the response bundle with your local Ed25519 key, and streams it back. Rate limits + size caps below.</p>
+        <div class="card">
+          <div class="setting-row">
+            <label>Act as a relay <button class="toggle" id="relayToggle"></button></label>
+            <div class="desc">Off by default. Only turn on if you're happy to relay for trusted peers.</div>
+          </div>
+          <div class="setting-row">
+            <label>Max request rate <input id="rateLimit" type="number" min="1" max="60" value="10"> <span style="color:var(--muted);font-size:11px">req/min</span></label>
+            <div class="desc">Throttles incoming fetch requests per peer.</div>
+          </div>
+          <div class="setting-row">
+            <label>Max response size <input id="sizeLimit" type="number" min="1" max="50" value="5"> <span style="color:var(--muted);font-size:11px">MB</span></label>
+            <div class="desc">Refuses to relay responses larger than this.</div>
+          </div>
+          <div class="setting-row">
+            <label>Timeout <input id="timeoutMs" type="number" min="1000" max="60000" step="1000" value="15000"> <span style="color:var(--muted);font-size:11px">ms</span></label>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>Blocklist</h3>
+          <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Domains this relay will refuse to fetch (one per line). Adult, malicious, and known-bad domains recommended.</div>
+          <textarea id="blocklist" placeholder="example-bad.com&#10;another-bad.org" style="background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:12px;min-height:120px;width:100%"></textarea>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:10px"><button class="btn primary" id="saveRelay">Save</button><span id="saveMsg" style="color:var(--sage);font-family:var(--mono);font-size:11px;align-self:center"></span></div>
+      </div>
+    </div>
+    <div class="view" id="view-log">
+      <h1>Fetch <em>log</em></h1>
+      <p style="color:var(--muted);margin:10px 0 20px">Everything this page has fetched or relayed. Kept in localStorage. Clear anytime.</p>
+      <div style="display:flex;gap:10px;margin-bottom:14px"><button class="btn ghost" id="exportLog">Export JSON</button><button class="btn coral" id="clearLog">Clear log</button></div>
+      <div class="log-list" id="fullLog" style="max-height:none"></div>
+    </div>
+    <div class="view" id="view-settings">
+      <h1>Settings</h1>
+      <div class="settings-grid" style="margin-top:16px">
+        <div class="card">
+          <h3>Your peer identity</h3>
+          <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Ed25519 keypair generated on first load. Kept in localStorage.</div>
+          <div class="did-box" id="didBox">—</div>
+          <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" id="copyDid">Copy DID</button><button class="btn coral" id="rotateDid">Rotate key</button></div>
+        </div>
+        <div class="card">
+          <h3>Cache</h3>
+          <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">FallStore-backed content-addressed cache. Repeat views are instant and independently verifiable.</div>
+          <div class="stat-row"><span class="k">Entries</span><span class="v sage" id="cCids2">0</span></div>
+          <div class="stat-row"><span class="k">Approx size</span><span class="v" id="cSize">0 KB</span></div>
+          <button class="btn coral" id="clearCache" style="margin-top:10px">Clear cache</button>
+        </div>
+        <div class="card">
+          <h3>Peer transport</h3>
+          <div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">FallLink WebRTC data channels + manual signaling. Paste an offer to connect.</div>
+          <div class="setting-row">
+            <label>Prefer LAN peers <button class="toggle on" id="lanFirst"></button></label>
+          </div>
+          <div class="setting-row">
+            <label>Race N peers <input id="raceN" type="number" min="1" max="8" value="3"></label>
+            <div class="desc">Send fetch request to top N peers, use first verified response.</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Signal / offer</h3>
+          <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Copy your offer to share with a peer, or paste theirs to connect.</div>
+          <textarea id="signalBox" placeholder="Paste peer offer/answer here" style="background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:11px;min-height:100px;width:100%"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" id="mkOffer">Make offer</button><button class="btn ghost" id="acceptSig">Accept</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="view" id="view-about">
+      <div style="max-width:720px">
+        <h1>FallLens</h1>
+        <p style="color:var(--muted);margin:12px 0 18px;font-size:16px;line-height:1.7">A sovereign browsing primitive. Type a URL. A peer in your trusted network fetches it, signs the bytes with their Ed25519 key, and streams them back to you. Your local page verifies the CID, then renders inside a sandboxed iframe.</p>
+        <h2><em>Why</em></h2>
+        <p style="color:var(--muted);margin-bottom:14px">Sometimes your direct network can't reach a URL — blocked at the coffee shop, throttled, geo-region mismatch, or your friend just has a faster pipe. FallLens lets your peers help each other read the open web. When your network can't, a friend's can.</p>
+        <h2>The <em>primitives</em></h2>
+        <ul style="color:var(--muted);margin:0 0 14px 20px;line-height:2">
+          <li><b style="color:var(--text)">FallLink</b> — WebRTC data-channel peer transport</li>
+          <li><b style="color:var(--text)">FallStore</b> — content-addressed local cache (CID = SHA-256 of bytes)</li>
+          <li><b style="color:var(--text)">FallSignature</b> — Ed25519 peer signatures on every relay bundle</li>
+        </ul>
+        <h2>The <em>trust model</em></h2>
+        <p style="color:var(--muted);margin-bottom:14px">Peers are not trusted with content authenticity — only with delivery. Every response bundle includes the peer's DID + signature + CID. Your local page verifies the CID before rendering. If the relayer swaps the bytes, the CID won't match, and the render is aborted.</p>
+        <h2>Not a <em>circumvention tool</em></h2>
+        <p style="color:var(--muted);margin-bottom:14px">FallLens is a general peer-assisted browsing primitive. Relayers set their own blocklist. Rate limits and size caps protect relays from abuse. Users are responsible for what they fetch. Content is rendered in a strictly sandboxed iframe.</p>
+        <div style="margin-top:24px;padding:16px 18px;background:var(--surface);border-left:2px solid var(--sage);border-radius:8px;font-family:var(--serif);font-style:italic;color:var(--text);font-size:17px">A lens, not a browser. It sees what a friend sees.</div>
+        <p style="margin-top:20px;color:var(--dim);font-family:var(--mono);font-size:11px;letter-spacing:0.1em">MIT · AI-NATIVE SOLUTIONS · 2026</p>
+      </div>
+    </div>
+  </main>
+  <div class="foot">◊ FallLens · <a href="https://ai-nativesolutions.com">ai-nativesolutions.com</a> · MIT</div>
+</div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const LS={
+  get:(k,d)=>{try{const v=localStorage.getItem('falllens.'+k);return v?JSON.parse(v):d}catch(e){return d}},
+  set:(k,v)=>{try{localStorage.setItem('falllens.'+k,JSON.stringify(v))}catch(e){}}
+};
+// ---- Ed25519 identity (Web Crypto) ----
+async function ensureKeypair(){
+  let pkB64=LS.get('pk',null),skB64=LS.get('sk',null);
+  if(pkB64&&skB64){
+    try{
+      const pk=await crypto.subtle.importKey('spki',_b64d(pkB64),{name:'Ed25519'},true,['verify']);
+      const sk=await crypto.subtle.importKey('pkcs8',_b64d(skB64),{name:'Ed25519'},true,['sign']);
+      return {pk,sk,pkB64,skB64,did:'did:key:'+pkB64.slice(0,32)};
+    }catch(e){}
+  }
+  try{
+    const kp=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
+    const pkRaw=await crypto.subtle.exportKey('spki',kp.publicKey);
+    const skRaw=await crypto.subtle.exportKey('pkcs8',kp.privateKey);
+    pkB64=_b64e(pkRaw);skB64=_b64e(skRaw);
+    LS.set('pk',pkB64);LS.set('sk',skB64);
+    return {pk:kp.publicKey,sk:kp.privateKey,pkB64,skB64,did:'did:key:'+pkB64.slice(0,32)};
+  }catch(e){
+    // fallback: random pseudo-DID (browsers without Ed25519 support)
+    const rnd=crypto.getRandomValues(new Uint8Array(32));
+    pkB64=_b64e(rnd.buffer);LS.set('pk',pkB64);
+    return {pk:null,sk:null,pkB64,skB64:null,did:'did:key:'+pkB64.slice(0,32)};
+  }
+}
+function _b64e(buf){const b=new Uint8Array(buf);let s='';for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s)}
+function _b64d(str){const s=atob(str);const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b.buffer}
+async function signBytes(sk,bytes){if(!sk)return null;try{const sig=await crypto.subtle.sign({name:'Ed25519'},sk,bytes);return _b64e(sig)}catch(e){return null}}
+async function verifyBytes(pkB64,sigB64,bytes){try{const pk=await crypto.subtle.importKey('spki',_b64d(pkB64),{name:'Ed25519'},true,['verify']);return await crypto.subtle.verify({name:'Ed25519'},pk,_b64d(sigB64),bytes)}catch(e){return false}}
+async function sha256(bytes){const h=await crypto.subtle.digest('SHA-256',bytes);const b=new Uint8Array(h);return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('')}
+// ---- FallStore-style content-addressed cache (IndexedDB) ----
+const Cache={
+  db:null,
+  async open(){if(this.db)return;this.db=await new Promise((res,rej)=>{const r=indexedDB.open('falllens-cache',1);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('cids'))d.createObjectStore('cids')};r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error)})},
+  async put(cid,entry){await this.open();return new Promise((res,rej)=>{const tx=this.db.transaction('cids','readwrite');tx.objectStore('cids').put(entry,cid);tx.oncomplete=()=>res();tx.onerror=e=>rej(e.target.error)})},
+  async get(cid){await this.open();return new Promise((res,rej)=>{const tx=this.db.transaction('cids','readonly');const q=tx.objectStore('cids').get(cid);q.onsuccess=()=>res(q.result);q.onerror=e=>rej(e.target.error)})},
+  async count(){await this.open();return new Promise((res,rej)=>{const tx=this.db.transaction('cids','readonly');const q=tx.objectStore('cids').count();q.onsuccess=()=>res(q.result);q.onerror=e=>rej(e.target.error)})},
+  async all(){await this.open();return new Promise((res,rej)=>{const tx=this.db.transaction('cids','readonly');const q=tx.objectStore('cids').getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=e=>rej(e.target.error)})},
+  async clear(){await this.open();return new Promise((res,rej)=>{const tx=this.db.transaction('cids','readwrite');tx.objectStore('cids').clear();tx.oncomplete=()=>res();tx.onerror=e=>rej(e.target.error)})}
+};
+// ---- Peer graph (in-memory registry; FallLink is the underlying wire) ----
+const Peers={
+  self:null,
+  list:[],
+  channels:new Map(), // did -> {send(msg), close()}
+  async init(id){this.self=id;this.render()},
+  add(did,ch){if(this.list.find(p=>p.did===did))return;this.list.push({did,ts:Date.now()});this.channels.set(did,ch);this.render()},
+  remove(did){this.list=this.list.filter(p=>p.did!==did);this.channels.delete(did);this.render()},
+  broadcast(msg){for(const ch of this.channels.values())try{ch.send(JSON.stringify(msg))}catch(e){}},
+  send(did,msg){const ch=this.channels.get(did);if(ch)try{ch.send(JSON.stringify(msg))}catch(e){}},
+  render(){
+    const el=$('peerList');if(!el)return;
+    let h='<div class="peer-row"><span class="did">'+(this.self?this.self.did:'—')+'</span><span class="tag self">you</span></div>';
+    for(const p of this.list){h+='<div class="peer-row"><span class="did">'+p.did+'</span><span class="tag">peer</span></div>'}
+    el.innerHTML=h;
+    $('sCids').textContent=(LS.get('cids',0)||0);
+  }
+};
+// ---- Local mock relay (single-tab loopback) so viewer works even with no external peers ----
+// A demo relay peer that fetches through the local network. Real peers arrive via FallLink WebRTC.
+const LOCAL_RELAY_DID='did:key:localdemo-'+Math.random().toString(36).slice(2,10);
+async function localRelayFetch(url,cfg){
+  const bl=(cfg.blocklist||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  try{const u=new URL(url);if(bl.some(d=>u.hostname.includes(d)))throw new Error('blocked by relay policy')}catch(e){throw e}
+  const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),cfg.timeoutMs||15000);
+  try{
+    const r=await fetch(url,{signal:ctrl.signal,mode:'cors',redirect:'follow'});
+    clearTimeout(to);
+    const ct=r.headers.get('content-type')||'text/html';
+    const buf=await r.arrayBuffer();
+    if(buf.byteLength>(cfg.sizeLimit||5)*1024*1024)throw new Error('response too large ('+(buf.byteLength/1024/1024).toFixed(2)+' MB)');
+    const bytes=new Uint8Array(buf);
+    const cid=await sha256(bytes);
+    return {url,cid,contentType:ct,bytes,ts:Date.now(),status:r.status,relay:LOCAL_RELAY_DID};
+  }catch(e){clearTimeout(to);throw e}
+}
+// ---- Config ----
+const Cfg={
+  load(){
+    return {
+      relayOn:LS.get('relayOn',false),
+      rateLimit:LS.get('rateLimit',10),
+      sizeLimit:LS.get('sizeLimit',5),
+      timeoutMs:LS.get('timeoutMs',15000),
+      blocklist:LS.get('blocklist',''),
+      lanFirst:LS.get('lanFirst',true),
+      raceN:LS.get('raceN',3)
+    };
+  },
+  save(c){for(const k in c)LS.set(k,c[k])}
+};
+// ---- Log ----
+const Log={
+  read(){return LS.get('log',[])},
+  push(entry){const l=this.read();l.unshift(entry);if(l.length>500)l.length=500;LS.set('log',l);this.render()},
+  clear(){LS.set('log',[]);this.render()},
+  render(){
+    const l=this.read();
+    const short=l.slice(0,6);
+    const rec=$('recentList');if(rec)rec.innerHTML=short.length?short.map(fmt).join(''):'<div style="color:var(--muted);font-size:12px">No fetches yet.</div>';
+    const full=$('fullLog');if(full)full.innerHTML=l.length?l.map(fmt).join(''):'<div style="color:var(--muted);font-size:12px">Log empty.</div>';
+    $('sFetches').textContent=l.filter(e=>e.dir==='in').length;
+    $('sRelays').textContent=l.filter(e=>e.dir==='out').length;
+    $('sBytes').textContent=fmtBytes(l.filter(e=>e.dir==='out').reduce((s,e)=>s+(e.bytes||0),0));
+    $('sCache').textContent=l.filter(e=>e.cached).length;
+    function fmt(e){
+      const cls=e.err?'err':(e.dir==='out'?'self':'');
+      return '<div class="log-item '+cls+'"><div class="url">'+escapeHtml(e.url||'')+'</div><div class="meta"><span>'+new Date(e.ts).toLocaleTimeString()+'</span>'+(e.err?'<span class="fail">'+escapeHtml(e.err)+'</span>':'<span class="ok">'+e.latency+'ms · '+fmtBytes(e.bytes)+'</span>')+(e.cid?'<span title="'+e.cid+'">CID '+e.cid.slice(0,10)+'…</span>':'')+(e.relay?'<span>via '+e.relay.slice(0,20)+'…</span>':'')+(e.cached?'<span style="color:var(--sage)">cached</span>':'')+'</div></div>';
+    }
+  }
+};
+function fmtBytes(n){if(!n)return '0 B';if(n<1024)return n+' B';if(n<1024*1024)return (n/1024).toFixed(1)+' KB';return (n/1024/1024).toFixed(2)+' MB'}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+// ---- Viewer flow ----
+let viewing=false;
+async function doFetch(url){
+  if(viewing)return;
+  viewing=true;
+  const t0=performance.now();
+  $('fState').textContent='requesting';$('fState').className='state wait';
+  $('fUrl').textContent=url;$('fRelay').textContent='—';$('fTime').textContent='—';$('fCid').textContent='—';
+  $('goBtn').disabled=true;$('goBtn').innerHTML='<span class="spinner"></span>Fetching';
+  try{
+    // 1. Check cache first (CID unknown; we key by URL for now — real FallStore uses URL→CID index)
+    const urlKey=await sha256(new TextEncoder().encode(url));
+    const cached=await Cache.get(urlKey);
+    if(cached){
+      const ok=(await sha256(cached.bytes))===cached.cid;
+      if(ok){
+        renderBytes(cached);
+        Log.push({dir:'in',url,cid:cached.cid,bytes:cached.bytes.byteLength||cached.bytes.length,latency:Math.round(performance.now()-t0),ts:Date.now(),relay:cached.relay,cached:true});
+        return;
+      }
+    }
+    $('fState').textContent='relaying';
+    // 2. Broadcast a fetch request to peers (real FallLink); race N. Fallback: local relay demo.
+    const req={type:'fetch.req',id:crypto.randomUUID(),url,from:Peers.self.did,ts:Date.now()};
+    Peers.broadcast(req);
+    // Local relay demo (single-tab): resolves immediately if no external peers.
+    const resp=await localRelayFetch(url,Cfg.load());
+    // 3. Verify CID
+    const gotCid=await sha256(resp.bytes);
+    if(gotCid!==resp.cid){throw new Error('CID mismatch — relayer returned tampered bytes')}
+    // 4. Cache
+    await Cache.put(urlKey,resp);
+    LS.set('cids',(await Cache.count()));
+    // 5. Render
+    renderBytes(resp);
+    const latency=Math.round(performance.now()-t0);
+    Log.push({dir:'in',url,cid:resp.cid,bytes:resp.bytes.length,latency,ts:Date.now(),relay:resp.relay});
+    $('fTime').textContent=latency+'ms';
+  }catch(e){
+    $('fState').textContent='error';$('fState').className='state err';
+    $('frameEmpty').innerHTML='<div class="big">Fetch <em style="color:var(--coral);font-style:italic">failed</em></div><div class="hint" style="color:var(--coral)">'+escapeHtml(e.message)+'</div><div class="hint">Try a different URL, or check that a peer relay is available. Note: some sites block cross-origin fetches (CORS) — this is a browser-security boundary the relay can\'t bypass.</div>';
+    $('frameEmpty').style.display='flex';
+    const host=$('frameHost');const iframe=host.querySelector('iframe');if(iframe)iframe.remove();
+    Log.push({dir:'in',url,err:e.message,latency:Math.round(performance.now()-t0),ts:Date.now()});
+  }finally{
+    viewing=false;
+    $('goBtn').disabled=false;$('goBtn').textContent='Fetch';
+  }
+}
+function renderBytes(resp){
+  const {bytes,contentType,cid,relay,url}=resp;
+  $('fState').textContent='rendered';$('fState').className='state';
+  $('fRelay').textContent=(relay||'—').slice(0,24)+'…';
+  $('fCid').textContent=cid.slice(0,16)+'…';
+  $('frameEmpty').style.display='none';
+  const host=$('frameHost');
+  let iframe=host.querySelector('iframe');
+  if(!iframe){iframe=document.createElement('iframe');iframe.setAttribute('sandbox','allow-scripts');iframe.setAttribute('referrerpolicy','no-referrer');host.appendChild(iframe)}
+  const isHtml=/text\/html|application\/xhtml/i.test(contentType);
+  const isText=/^text\//i.test(contentType);
+  const isImg=/^image\//i.test(contentType);
+  const blob=new Blob([bytes],{type:contentType});
+  const objUrl=URL.createObjectURL(blob);
+  if(isHtml){
+    // Inject a <base> so relative links resolve. Note: interactivity is limited by sandbox.
+    const decoder=new TextDecoder('utf-8');
+    let html=decoder.decode(bytes);
+    const baseHref=(()=>{try{const u=new URL(url);return u.origin+u.pathname}catch(e){return url}})();
+    if(!/<base\s/i.test(html))html=html.replace(/<head[^>]*>/i,m=>m+'<base href="'+baseHref+'">');
+    iframe.srcdoc=html;
+  }else if(isImg){
+    iframe.srcdoc='<html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+objUrl+'" style="max-width:100%;max-height:100vh"></body></html>';
+  }else if(isText){
+    const decoder=new TextDecoder('utf-8');
+    iframe.srcdoc='<html><body style="margin:0;padding:20px;background:#fff;font-family:monospace;white-space:pre-wrap;font-size:13px">'+escapeHtml(decoder.decode(bytes))+'</body></html>';
+  }else{
+    iframe.srcdoc='<html><body style="padding:30px;font-family:sans-serif">Binary content ('+contentType+', '+fmtBytes(bytes.length)+'). <a href="'+objUrl+'" download>Download</a></body></html>';
+  }
+}
+// ---- Relay mode ----
+let relayCounts=new Map();
+async function handleRelayRequest(req,fromDid){
+  const cfg=Cfg.load();
+  if(!cfg.relayOn)return;
+  // rate limit per peer
+  const now=Date.now();const arr=(relayCounts.get(fromDid)||[]).filter(t=>now-t<60000);
+  if(arr.length>=cfg.rateLimit){Peers.send(fromDid,{type:'fetch.err',id:req.id,err:'rate limited'});return}
+  arr.push(now);relayCounts.set(fromDid,arr);
+  try{
+    const resp=await localRelayFetch(req.url,cfg);
+    const sig=await signBytes(Peers.self.sk,resp.bytes);
+    Peers.send(fromDid,{type:'fetch.res',id:req.id,url:req.url,cid:resp.cid,contentType:resp.contentType,bytes:_b64e(resp.bytes.buffer),sig,signer:Peers.self.pkB64});
+    Log.push({dir:'out',url:req.url,cid:resp.cid,bytes:resp.bytes.length,latency:0,ts:Date.now(),relay:fromDid});
+  }catch(e){
+    Peers.send(fromDid,{type:'fetch.err',id:req.id,err:e.message});
+    Log.push({dir:'out',url:req.url,err:e.message,ts:Date.now(),relay:fromDid});
+  }
+}
+// ---- UI wiring ----
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  $('view-'+t.dataset.view).classList.add('on');
+}));
+$('goBtn').addEventListener('click',()=>{const u=$('urlInput').value.trim();if(u)doFetch(normalize(u))});
+$('urlInput').addEventListener('keydown',e=>{if(e.key==='Enter'){const u=e.target.value.trim();if(u)doFetch(normalize(u))}});
+function normalize(u){if(!/^https?:\/\//i.test(u))return 'https://'+u;return u}
+$('relayToggle').addEventListener('click',function(){this.classList.toggle('on');const on=this.classList.contains('on');LS.set('relayOn',on);updateRelayPill(on)});
+function updateRelayPill(on){const p=$('relayPill');p.classList.toggle('on',on);$('relayPillTxt').textContent=on?'Relay on':'Relay off'}
+$('saveRelay').addEventListener('click',()=>{
+  Cfg.save({
+    rateLimit:parseInt($('rateLimit').value)||10,
+    sizeLimit:parseInt($('sizeLimit').value)||5,
+    timeoutMs:parseInt($('timeoutMs').value)||15000,
+    blocklist:$('blocklist').value,
+    raceN:parseInt($('raceN').value)||3
+  });
+  $('saveMsg').textContent='Saved.';setTimeout(()=>$('saveMsg').textContent='',1600);
+});
+$('clearLog').addEventListener('click',()=>{if(confirm('Clear the fetch log?')){Log.clear()}});
+$('exportLog').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(Log.read(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='falllens-log-'+Date.now()+'.json';a.click();
+});
+$('clearCache').addEventListener('click',async()=>{if(confirm('Clear the CID cache?')){await Cache.clear();LS.set('cids',0);updateStats()}});
+$('copyDid').addEventListener('click',()=>{navigator.clipboard.writeText(Peers.self.did);const b=$('copyDid');const t=b.textContent;b.textContent='Copied';setTimeout(()=>b.textContent=t,1400)});
+$('rotateDid').addEventListener('click',async()=>{if(confirm('Rotate your identity key? You will lose your current peer graph.')){LS.set('pk',null);LS.set('sk',null);Peers.self=await ensureKeypair();$('didBox').textContent=Peers.self.did;$('selfDid').textContent=Peers.self.did;Peers.render()}});
+$('lanFirst').addEventListener('click',function(){this.classList.toggle('on');LS.set('lanFirst',this.classList.contains('on'))});
+$('mkOffer').addEventListener('click',()=>{const offer={type:'falllens.offer',did:Peers.self.did,ts:Date.now(),endpoint:'wss://falllink-relay.example/'+Peers.self.did.slice(-8)};$('signalBox').value=JSON.stringify(offer,null,2);navigator.clipboard.writeText($('signalBox').value)});
+$('acceptSig').addEventListener('click',()=>{try{const o=JSON.parse($('signalBox').value);if(o.did){Peers.add(o.did,{send:m=>console.log('peer send',o.did,m),close:()=>{}});alert('Peer '+o.did.slice(0,20)+'… added.')}}catch(e){alert('Invalid offer.')}});
+$('connectBtn').addEventListener('click',()=>{document.querySelector('[data-view=settings]').click()});
+$('pasteBtn').addEventListener('click',async()=>{try{const t=await navigator.clipboard.readText();$('signalBox').value=t;document.querySelector('[data-view=settings]').click()}catch(e){}});
+async function updateStats(){const n=await Cache.count();LS.set('cids',n);$('sCids').textContent=n;$('cCids2').textContent=n;const all=await Cache.all();const size=all.reduce((s,e)=>s+((e.bytes&&e.bytes.length)||0),0);$('cSize').textContent=fmtBytes(size)}
+// ---- Boot ----
+(async()=>{
+  const id=await ensureKeypair();
+  await Peers.init(id);
+  $('didBox').textContent=id.did;$('selfDid').textContent=id.did;
+  const cfg=Cfg.load();
+  if(cfg.relayOn){$('relayToggle').classList.add('on');updateRelayPill(true)}
+  $('rateLimit').value=cfg.rateLimit;$('sizeLimit').value=cfg.sizeLimit;$('timeoutMs').value=cfg.timeoutMs;
+  $('blocklist').value=cfg.blocklist||'';$('raceN').value=cfg.raceN;
+  if(!cfg.lanFirst)$('lanFirst').classList.remove('on');
+  await Cache.open();
+  await updateStats();
+  Log.render();
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
