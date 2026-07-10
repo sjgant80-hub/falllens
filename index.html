@@ -462,7 +462,26 @@ function renderBytes(resp){
     if(!/<base\s/i.test(html))html=html.replace(/<head[^>]*>/i,m=>m+'<base href="'+baseHref+'">');
     iframe.srcdoc=html;
   }else if(isImg){
-    iframe.srcdoc='<html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+objUrl+'" style="max-width:100%;max-height:100vh"></body></html>';
+    iframe.srcdoc='<html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+objUrl+'" style="max-width:100%;max-height:100vh">
+
+<!-- ═══════════════════════ AUTOPILOT · fall-autopilot-kit ═══════════════════════ -->
+<script type="module">
+  try {
+    const { installAutopilot } = await import('https://sjgant80-hub.github.io/fall-autopilot-kit/src/autopilot.js');
+    const manifestRes = await fetch('https://sjgant80-hub.github.io/fall-autopilot-kit/manifests/falllens.json');
+    const manifest = await manifestRes.json();
+    manifest.actions = manifest.actions.map(a => ({ ...a, run: async (params) => {
+      const fn = window._app?.[a.id];
+      if (typeof fn === 'function') return fn(params);
+      alert('Autopilot proposes: ' + a.name + ' · params: ' + JSON.stringify(params) + '\n\nThis tool has not yet implemented the ' + a.id + ' handler. Proposal logged to audit.');
+      return { stub: true, action: a.id, params };
+    }}));
+    manifest.state = () => ({ ...(window._app || {}), now: new Date().toISOString() });
+    installAutopilot(manifest);
+  } catch (e) { console.warn('[autopilot] init failed:', e); }
+</script>
+
+</body></html>';
   }else if(isText){
     const decoder=new TextDecoder('utf-8');
     iframe.srcdoc='<html><body style="margin:0;padding:20px;background:#fff;font-family:monospace;white-space:pre-wrap;font-size:13px">'+escapeHtml(decoder.decode(bytes))+'</body></html>';
